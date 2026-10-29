@@ -1,0 +1,38 @@
+# CI: build the HIP (AMD) backend on a GitHub Actions Windows runner --
+# no GPU, no local machine needed at all. The runner has MSVC; we install the
+# AMD HIP SDK silently and run the standard build.
+#
+# To enable: push this repo to GitHub -- the workflow appears under Actions.
+# Adjust HIP_SDK_URL to the current installer from
+# https://www.amd.com/en/developer/resources/rocm-hub/hip-sdk.html
+name: build-hip
+on:
+  push:
+    paths: ["csrc/**", "packaging/build_hip.ps1", ".github/workflows/build-hip.yml"]
+  workflow_dispatch:
+
+jobs:
+  hip:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install AMD HIP SDK (silent)
+        shell: powershell
+        run: |
+          $url = "https://download.amd.com/whql-amd/24.20/whql-hip-sdk-6.2.exe"  # TODO: актуальный URL
+          Invoke-WebRequest $url -Out hip-setup.exe
+          Start-Process .\hip-setup.exe -ArgumentList '-INSTALL','--silent' -Wait -NoNewWindow
+
+      - name: Build the HIP backend
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File packaging\build_hip.ps1 -OutName p40cuda_amd.dll
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: hip-backend
+          path: |
+            p40cuda_amd.dll
+            amdhip64.dll

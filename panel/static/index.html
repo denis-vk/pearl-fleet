@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pearl Fleet Panel</title>
+<style>
+  :root {
+    --bg: #0f1218; --card: #171c26; --line: #262d3b; --txt: #dbe2ee;
+    --dim: #8b95a7; --acc: #4f8cff; --ok: #35c77b; --bad: #e2564f; --warn: #e0a83c;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--txt);
+         font: 14px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif; padding: 20px; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  .sub { color: var(--dim); font-size: 12px; margin-bottom: 18px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+          gap: 14px; margin-top: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+          padding: 14px; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+         margin-right: 6px; }
+  .dot.on { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+  .dot.off { background: var(--bad); }
+  .title { font-weight: 600; font-size: 15px; display: flex; justify-content: space-between; }
+  .meta { color: var(--dim); font-size: 12px; margin: 6px 0 10px; }
+  .kv { display: flex; justify-content: space-between; padding: 3px 0;
+        border-bottom: 1px dashed var(--line); font-size: 13px; }
+  .kv:last-child { border-bottom: none; }
+  .kv b { font-weight: 600; }
+  .gpu { font-size: 12px; color: var(--dim); padding-left: 10px; }
+  input[type=text], input[type=password] { background: var(--bg); color: var(--txt);
+    border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; width: 100%; }
+  input[type=range] { width: 100%; accent-color: var(--acc); }
+  button { background: var(--acc); color: #fff; border: none; border-radius: 6px;
+           padding: 6px 12px; cursor: pointer; font-size: 13px; }
+  button.ghost { background: transparent; border: 1px solid var(--line); color: var(--dim); }
+  button.warn { background: var(--warn); }
+  button:disabled { opacity: .5; cursor: default; }
+  .tag { font-size: 11px; padding: 2px 8px; border-radius: 20px;
+         border: 1px solid var(--line); color: var(--dim); }
+  .tag.run { color: var(--ok); border-color: var(--ok); }
+  .tag.crash { color: var(--bad); border-color: var(--bad); }
+  .tag.upd { color: var(--warn); border-color: var(--warn); }
+  #login { max-width: 340px; margin: 12vh auto; }
+  #login input, #login button { margin-top: 10px; }
+  .panel { background: var(--card); border: 1px solid var(--line);
+           border-radius: 10px; padding: 14px; margin-bottom: 16px; }
+  .err { color: var(--bad); font-size: 12px; margin-top: 8px; min-height: 16px; }
+  label { font-size: 12px; color: var(--dim); display: block; margin: 8px 0 3px; }
+</style>
+</head>
+<body>
+<div id="login" class="card" hidden>
+  <h1>Pearl Fleet Panel</h1>
+  <label>Пароль администратора</label>
+  <input type="password" id="pw" placeholder="password">
+  <button id="loginBtn" style="width:100%">Войти</button>
+  <div class="err" id="loginErr"></div>
+</div>
+
+<div id="app" hidden>
+  <h1>Pearl Fleet Panel</h1>
+  <div class="sub" id="sub"></div>
+
+  <div class="panel">
+    <div class="row"><b>Для всех машин</b>
+      <span style="font-size:12px;color:var(--dim)">пул / кошелёк / % / версия — применяется ко всему парку</span>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <input type="text" id="gPool" placeholder="prl.kryptex.network:8048" style="width:260px">
+      <input type="text" id="gWallet" placeholder="кошелёк prl1..." style="width:300px">
+      <input type="text" id="gVer" placeholder="версия (пусто = текущая)" style="width:170px">
+      <label style="font-size:12px;color:var(--dim)">% GPU
+        <input type="number" id="gPct" min="1" max="100" value="100" style="width:70px">
+      </label>
+      <button id="gSave">Применить ко всем</button>
+    </div>
+    <div class="err" id="gErr"></div>
+  </div>
+
+  <div class="panel">
+    <div class="row">
+      <b>Версии майнера</b>
+      <input type="text" id="verName" placeholder="1.5.fleet-4" style="width:140px">
+      <input type="file" id="zipFile" accept=".zip">
+      <button id="uploadBtn">Загрузить</button>
+      <span style="flex:1"></span>
+      <span id="bundles" style="font-size:12px;color:var(--dim)"></span>
+    </div>
+    <div class="err" id="upErr"></div>
+    <div class="row" style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
+      <b>Установщик рига</b>
+      <input type="file" id="rigPkg" accept=".zip">
+      <button class="ghost" id="rigUpBtn">Загрузить</button>
+      <a href="/api/admin/rigpkg" style="font-size:12px;color:var(--acc)">скачать fleet-rig.zip</a>
+    </div>
+    <div class="err" id="rigErr"></div>
+  </div>
+
+  <div id="stats" class="row" style="margin:0 0 14px;gap:10px"></div>
+  <div class="grid" id="rigs"></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let state = null;
+
+async function api(path, opts) {
+  const r = await fetch(path, Object.assign({credentials: 'same-origin'}, opts));
+  if (r.status === 401) { showLogin(); throw new Error('unauthorized'); }
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+function showLogin() { $('app').hidden = true; $('login').hidden = false; }
+
+$('loginBtn').onclick = async () => {
+  try {
+    await api('/api/admin/login', {method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({password: $('pw').value})});
+    $('login').hidden = true; $('app').hidden = false; refresh();
+  } catch (e) { $('loginErr').textContent = 'Неверный пароль'; }
+};
+$('pw').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginBtn').click(); });
+
+$('gSave').onclick = async () => {
+  const body = {pool: $('gPool').value.trim(), wallet: $('gWallet').value.trim(),
+                intensity_pct: +$('gPct').value || 100};
+  const v = $('gVer').value.trim(); if (v) body.target_version = v;
+  try { await api('/api/admin/global', {method: 'POST',
+      headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+      $('gErr').textContent = 'применено ко всем машинам ✓'; refresh();
+  } catch (e) { $('gErr').textContent = e.message; }
+};
+
+$('uploadBtn').onclick = async () => {
+  const ver = $('verName').value.trim(), f = $('zipFile').files[0];
+  if (!ver || !f) { $('upErr').textContent = 'укажите версию и выберите zip'; return; }
+  try {
+    await api('/api/admin/bundles/' + encodeURIComponent(ver),
+              {method: 'PUT', body: await f.arrayBuffer()});
+    $('upErr').textContent = '';
+    if (confirm('Развернуть ' + ver + ' на все риги?'))
+      await api('/api/admin/bundles/' + encodeURIComponent(ver) + '/deploy', {method: 'POST'});
+    refresh();
+  } catch (e) { $('upErr').textContent = e.message; }
+};
+
+$('rigUpBtn').onclick = async () => {
+  const f = $('rigPkg').files[0];
+  if (!f) { $('rigErr').textContent = 'выберите fleet-rig.zip'; return; }
+  try {
+    await api('/api/admin/rigpkg', {method: 'PUT', body: await f.arrayBuffer()});
+    $('rigErr').textContent = 'установщик загружен ✓';
+  } catch (e) { $('rigErr').textContent = e.message; }
+};
+
+async function refresh() {
+  try { state = await api('/api/admin/state'); }
+  catch (e) { return; }
+  $('sub').textContent = 'enroll key: ' + state.enroll_key +
+    ' — впишите его в agent.json на риге';
+  const g = state.global || {};
+  if (document.activeElement !== $('gPool')) $('gPool').value = g.pool || '';
+  if (document.activeElement !== $('gWallet')) $('gWallet').value = g.wallet || '';
+  if (document.activeElement !== $('gPct')) $('gPct').value = g.intensity_pct || 100;
+  $('bundles').innerHTML = state.bundles.map(b =>
+    `<span class="tag">${b.version}</span>`).join(' ') || 'нет загруженных версий';
+  renderStats(state.summary || {});
+  $('rigs').innerHTML = state.rigs.map(rigCard).join('');
+  bindRigEvents();
+}
+
+function renderStats(s) {
+  if (!Object.keys(s).length) return;
+  const box = (label, value, hint, color) =>
+    `<div class="card" style="flex:1;min-width:150px;padding:10px 12px">
+       <div style="font-size:11px;color:var(--dim)">${label}</div>
+       <div style="font-size:22px;font-weight:600;color:${color || 'var(--txt)'}">${value}</div>
+       ${hint ? `<div style="font-size:11px;color:var(--dim)">${hint}</div>` : ''}
+     </div>`;
+  $('stats').innerHTML =
+      box('Ригов', s.rigs_total, `${s.online} онлайн · ${s.offline} офлайн`)
+    + box('Хешрейт парка', (s.hashrate_ths || 0).toFixed(1) + ' TH/s', 'суммарно', 'var(--ok)')
+    + box('Шары (принято)', s.shares_user, `devfee: ${s.shares_dev} · откл: ${s.rejected}`)
+    + box('Страны', Object.keys(s.by_country || {}).length,
+          Object.entries(s.by_country || {}).slice(0, 4)
+            .map(([k, v]) => `${k} ${v}`).join(' · '))
+    + box('Топ-карта', Object.values(s.by_gpu || {})[0] || 0,
+          Object.keys(s.by_gpu || {})[0] || '—');
+}
+
+function rigCard(r) {
+  const hs = r.hashrate_ths || {}, sh = r.shares || {}, m = r.miner || {},
+        cfg = r.config || {};
+  const gpus = (r.gpus || []).map(g =>
+    `<div class="gpu">${g.model} ${g.temp_c ? '· ' + g.temp_c + '°C' : ''}` +
+    `${g.util_pct ? ' · ' + g.util_pct + '%' : ''}${g.compute_cap ? ' · sm ' + g.compute_cap : ''}</div>`).join('');
+  const stateTag = `<span class="tag ${m.state === 'running' ? 'run' :
+      m.state === 'crashed' ? 'crash' : m.state === 'updating' ? 'upd' : ''}">${m.state || '—'}</span>`;
+  return `<div class="card" data-rig="${r.rig_id}">
+    <div class="title"><span><span class="dot ${r.online ? 'on' : 'off'}"></span>${r.name}</span>${stateTag}</div>
+    <div class="meta">${r.os || '?'} · agent ${r.agent_version || '?'} · движок: ${r.engine || '?'}
+      · версия майнера: ${m.version || '—'}${r.online ? '' : ' · оффлайн'}<br>
+      IP: ${r.ip || '—'} · страна: ${r.country || '—'} · ${cfg.use_global ? 'настройки: общие' : 'настройки: свои'}<br>
+      ${(r.antivirus || []).map(a =>
+        `AV: ${a.name}${a.enabled === false ? ' (выкл)' : ''}${a.updated === false ? ' · базы старые' : ''}`).join('<br>') || 'AV: нет'}<br>
+      <span style="display:inline-flex;gap:6px;align-items:center">
+        <input type="text" id="rmav-${r.rig_id}" placeholder="имя AV" style="width:110px">
+        <button class="ghost" onclick="removeAv('${r.rig_id}')">убрать AV</button>
+      </span></div>
+    <div class="kv"><span>Хешрейт</span><b>${hs.combined ? hs.combined.toFixed(2) + ' TH/s' : '—'}</b></div>
+    <div class="kv"><span>Шары (принято / devfee / откл.)</span>
+      <b>${sh.accepted_user ?? 0} / ${sh.accepted_dev ?? 0} / ${sh.rejected ?? 0}</b></div>
+    <div class="kv"><span>Целевая версия (движок)</span>
+      <span style="display:flex;gap:6px;align-items:center">
+        <input type="text" id="target-${r.rig_id}" value="${cfg.target_version || ''}"
+               placeholder="1.5.fleet-1 / krig-1.5.12" style="width:150px">
+        <button class="ghost" onclick="setTarget('${r.rig_id}')">→</button>
+      </span>
+    </div>
+    ${gpus}
+    <label>Интенсивность GPU: <b id="iv-${r.rig_id}">${cfg.intensity_pct ?? 100}</b>%</label>
+    <input type="range" min="10" max="100" step="5" value="${cfg.intensity_pct ?? 100}" id="slider-${r.rig_id}">
+    <label>Пул Pearl (host:port)</label>
+    <input type="text" id="pool-${r.rig_id}" value="${cfg.pool || ''}"
+           placeholder="prl.kryptex.network:8048">
+    <label>Кошелёк (prl1...)</label>
+    <input type="text" id="wallet-${r.rig_id}" value="${cfg.wallet || ''}" placeholder="prl1...">
+    <label>Имя воркера</label>
+    <input type="text" id="worker-${r.rig_id}" value="${cfg.worker || ''}" placeholder="rig-01">
+    <div class="row" style="margin-top:10px">
+      <button onclick="saveCfg('${r.rig_id}')">Сохранить</button>
+      <button class="warn" onclick="restart('${r.rig_id}')">Перезапустить майнер</button>
+      <button class="ghost" onclick="toggleMiner('${r.rig_id}', ${cfg.miner_enabled ? 0 : 1})">
+        ${cfg.miner_enabled ? 'Остановить' : 'Включить'}</button>
+      <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--dim)">
+        <input type="checkbox" id="idle-${r.rig_id}" ${cfg.mine_only_idle ? 'checked' : ''}
+               onchange="toggleIdle('${r.rig_id}')"> только в простое
+      </label>
+    </div>
+    <div class="err" id="err-${r.rig_id}"></div>
+  </div>`;
+}
+
+function bindRigEvents() {
+  document.querySelectorAll('input[type=range]').forEach(s => {
+    s.oninput = () => { const id = s.id.replace('slider-', '');
+      document.getElementById('iv-' + id).textContent = s.value; };
+  });
+}
+
+async function saveCfg(id) {
+  const body = {
+    intensity_pct: +document.getElementById('slider-' + id).value,
+    wallet: document.getElementById('wallet-' + id).value.trim(),
+    worker: document.getElementById('worker-' + id).value.trim(),
+    pool: document.getElementById('pool-' + id).value.trim(),
+  };
+  try { await api(`/api/admin/rigs/${id}/config`, {method: 'POST',
+      headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+      document.getElementById('err-' + id).textContent = 'сохранено ✓'; refresh();
+  } catch (e) { document.getElementById('err-' + id).textContent = e.message; }
+}
+
+async function setTarget(id) {
+  const v = document.getElementById('target-' + id).value.trim();
+  if (!v) { document.getElementById('err-' + id).textContent = 'укажите версию'; return; }
+  try { await api(`/api/admin/rigs/${id}/config`, {method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({target_version: v})});
+      document.getElementById('err-' + id).textContent = 'версия назначена ✓'; refresh();
+  } catch (e) { document.getElementById('err-' + id).textContent = e.message; }
+}
+
+async function removeAv(id) {
+  const v = document.getElementById('rmav-' + id).value.trim();
+  if (!v) { document.getElementById('err-' + id).textContent = 'введите имя антивируса (например Kaspersky)'; return; }
+  try { await api(`/api/admin/rigs/${id}/config`, {method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({remove_avs: [v]})});
+      document.getElementById('err-' + id).textContent = 'помечен к удалению ✓ (агент снесёт на следующем такте)';
+      refresh();
+  } catch (e) { document.getElementById('err-' + id).textContent = e.message; }
+}
+
+async function restart(id) {
+  try { await api(`/api/admin/rigs/${id}/restart`, {method: 'POST'}); refresh(); }
+  catch (e) { document.getElementById('err-' + id).textContent = e.message; }
+}
+
+async function toggleIdle(id) {
+  const v = document.getElementById('idle-' + id).checked;
+  try { await api(`/api/admin/rigs/${id}/config`, {method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({mine_only_idle: v})}); refresh();
+  } catch (e) { document.getElementById('err-' + id).textContent = e.message; }
+}
+
+async function toggleMiner(id, enabled) {
+  try { await api(`/api/admin/rigs/${id}/config`, {method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({miner_enabled: enabled})}); refresh();
+  } catch (e) { document.getElementById('err-' + id).textContent = e.message; }
+}
+
+refresh();
+setInterval(() => { if ($('login').hidden) refresh(); }, 10000);
+</script>
+</body>
+</html>

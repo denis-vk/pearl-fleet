@@ -1,0 +1,81 @@
+# CI: build the ready-to-deploy Windows artifacts on GitHub runners --
+# no local Windows machine, no GPU. Produces:
+#   artifact miner-bundle.zip  -> upload in the panel ("Версии майнера")
+#   artifact fleet-rig.zip     -> the rig installer package (agent + cert)
+#
+# CUDA backend only by default (always works). To also include the AMD HIP
+# backend, install the HIP SDK on the runner first -- see build-hip.yml and
+# run this workflow with the hipsdk input once the URL is set.
+name: build-windows
+on:
+  push:
+    paths: ["python/**", "agent/**", "csrc/**", "packaging/**", "panel/**",
+            ".github/workflows/build-windows.yml"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: bundle version
+        required: true
+        default: 1.5.universal-1
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 120
+    env:
+      VERSION: ${{ github.event.inputs.version || '1.5.universal-1' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python deps
+        run: pip install numpy blake3 py-pearl-mining pyinstaller
+
+      - name: CUTLASS headers
+        shell: powershell
+        run: |
+          git clone --depth 1 https://github.com/NVIDIA/cutlass .deps/cutlass
+          echo "CUTLASS_DIR=$PWD\.deps\cutlass\include" >> $env:GITHUB_ENV
+
+      - name: Free signing identity (self-signed, no purchase, no KYC)
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File packaging\make_selfsigned_cert.ps1 -Name "Fleet Systems" -OutDir signing -PfxPassword "ci-sign"
+
+      - name: Build (CUDA backend + miner + agent + rig package)
+        shell: powershell
+        run: |
+          powershell -ExecutionPolicy Bypass -File packaging\build_fleet_universal.ps1 `
+            -Version "$env:VERSION" -SkipHip `
+            -SignPfx signing\fleet-signing.pfx -SignPfxPassword "ci-sign"
+
+      - name: Verify Python layer on the runner
+        shell: powershell
+        run: |
+          # fast, GPU-free proof that panel+agent+updater work
+          pip install fastapi "uvicorn[standard]"
+          python tools\verify_fleet.py
+
+      - name: Pack artifacts
+        shell: powershell
+        run: |
+          Compress-Archive -Path dist\fleet-rig\* -DestinationPath "dist\fleet-rig-$env:VERSION.zip" -Force
+          Move-Item "dist\bundle-$env:VERSION.zip" "dist\miner-bundle.zip" -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: miner-bundle
+          path: dist/miner-bundle.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fleet-rig
+          path: dist/fleet-rig-${{ github.event.inputs.version || '1.5.universal-1' }}.zip
+
+      - name: Summary
+        shell: powershell
+        run: |
+          "Bundle: dist\miner-bundle.zip" | Out-File $env:GITHUB_STEP_SUMMARY -Append
+          "Rig installer: dist\fleet-rig-$env:VERSION.zip" | Out-File $env:GITHUB_STEP_SUMMARY -Append
+          "Upload both in the panel." | Out-File $env:GITHUB_STEP_SUMMARY -Append

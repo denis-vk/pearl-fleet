@@ -1,0 +1,14 @@
+.venv/
+dist/
+build*/
+build_hip*/
+*.pyc
+__pycache__/
+.DS_Store
+bundles/
+*.db
+*.db-wal
+*.db-shm
+signing/
+.git/
+deploy/panel/.env

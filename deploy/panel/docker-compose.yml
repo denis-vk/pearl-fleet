@@ -1,0 +1,45 @@
+# docker compose up -d
+#
+# Panel + Caddy (automatic HTTPS via Let's Encrypt). Set PANEL_DOMAIN and
+# PANEL_ADMIN_PASSWORD in .env first. Data (SQLite + uploaded bundles) lives in
+# the named volume, so `docker compose down` never loses rigs/configs.
+services:
+  panel:
+    build:
+      context: ../..
+      dockerfile: deploy/panel/Dockerfile
+    restart: unless-stopped
+    environment:
+      PANEL_ADMIN_PASSWORD: ${PANEL_ADMIN_PASSWORD:?set in .env}
+      PANEL_DB: /data/panel.db
+      PANEL_BUNDLES_DIR: /data/bundles
+    volumes:
+      - panel-data:/data
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz',timeout=3).status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - panel
+    environment:
+      PANEL_DOMAIN: ${PANEL_DOMAIN:?set in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  panel-data:
+  caddy-data:
+  caddy-config:

@@ -1,0 +1,12 @@
+# Automatic HTTPS (Let's Encrypt) in front of the panel.
+# Point an A-record of PANEL_DOMAIN at the VM's static IP first.
+{$PANEL_DOMAIN} {
+	encode zstd gzip
+
+	# uploaded bundles can be tens of MB
+	request_body {
+		max_size 2GB
+	}
+
+	reverse_proxy panel:8000
+}

@@ -1,0 +1,33 @@
+# systemd unit for the panel WITHOUT Docker (Ubuntu/Debian VM).
+# Install:
+#   sudo useradd -r -s /usr/sbin/nologin -d /opt/pearl-panel pearl
+#   sudo mkdir -p /opt/pearl-panel /var/lib/pearl-panel
+#   sudo rsync -a --exclude .venv --exclude dist ./ /opt/pearl-panel/
+#   sudo -u pearl python3 -m venv /opt/pearl-panel/.venv
+#   sudo -u pearl /opt/pearl-panel/.venv/bin/pip install -r /opt/pearl-panel/panel/requirements.txt
+#   sudo cp deploy/panel/pearl-panel.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now pearl-panel
+[Unit]
+Description=Pearl Fleet Panel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pearl
+Group=pearl
+WorkingDirectory=/opt/pearl-panel
+Environment=PANEL_DB=/var/lib/pearl-panel/panel.db
+Environment=PANEL_BUNDLES_DIR=/var/lib/pearl-panel/bundles
+EnvironmentFile=-/etc/pearl-panel.env
+ExecStart=/opt/pearl-panel/.venv/bin/uvicorn panel.main:app \
+    --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips '*'
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/pearl-panel
+
+[Install]
+WantedBy=multi-user.target
