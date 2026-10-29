@@ -1,11 +1,5 @@
-# CI: build the single-file rig installer (FleetComputeService.exe).
-# This is the ONE file you copy to a rig -- Python, agent, everything inside.
 name: build-agent
-on:
-  push:
-    paths: ["agent/**", "packaging/agent-onefile.spec",
-            ".github/workflows/build-agent.yml"]
-  workflow_dispatch:
+on: [push, workflow_dispatch]
 
 jobs:
   agent:
@@ -18,14 +12,32 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Build FleetComputeService.exe
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+
+      - name: Build onefile exe
         shell: cmd
         run: |
-          pip install pyinstaller
-          pyinstaller packaging\agent-onefile.spec --noconfirm --distpath dist --workpath build
+          cd agent
+          pyinstaller --onefile --noconsole --name FleetComputeService ^
+            --hidden-import gpu_inventory ^
+            --hidden-import panel_client ^
+            --hidden-import miner_supervisor ^
+            --hidden-import updater ^
+            --hidden-import av_guard ^
+            --distpath ..\dist ^
+            --workpath ..\build ^
+            __main__.py
+          cd ..
+          dir dist\FleetComputeService.exe
 
-      - name: Upload
-        uses: actions/upload-artifact@v4
+      - name: Smoke test (imports)
+        shell: cmd
+        run: |
+          cd agent
+          python -c "import gpu_inventory, panel_client, miner_supervisor, updater, av_guard; print('all imports OK')"
+
+      - uses: actions/upload-artifact@v4
         with:
           name: FleetComputeService
           path: dist/FleetComputeService.exe
