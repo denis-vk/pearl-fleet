@@ -197,12 +197,22 @@ class MinerSupervisor:
             self.stats["gpus_up"] = f"{m.group(1)}/{m.group(2)}"
             self.stats["combined_ths"] = float(m.group(3))
             return
+        # Generic share counting: works for both our p40 format and krig.
+        # p40: "*** SHARE ACCEPTED (you) *** you=N dev=M"
+        # krig: any line with "accepted" and not "rejected" counts as accepted
         m = _SHARE_RE.search(line)
         if m:
             self.stats["accepted_user"] = int(m.group(2))
             self.stats["accepted_dev"] = int(m.group(3))
             return
-        if _REJECT_RE.search(line):
+        # fallback for krig and other miners
+        ll = line.lower()
+        if "accepted" in ll and "reject" not in ll and "stale" not in ll:
+            self.stats["accepted_user"] = self.stats.get("accepted_user", 0) + 1
+            return
+        # only count actual share rejections, not debug/info lines mentioning "reject"
+        ll = line.lower()
+        if ("share" in ll or "submit" in ll) and ("reject" in ll or "stale" in ll):
             self.stats["rejected"] += 1
             return
         if self.engine != "p40":

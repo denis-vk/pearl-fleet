@@ -3,312 +3,284 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pearl Fleet Panel</title>
+<title>Pearl Fleet</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-  :root {
-    --bg: #0f1218; --card: #171c26; --line: #262d3b; --txt: #dbe2ee;
-    --dim: #8b95a7; --acc: #4f8cff; --ok: #35c77b; --bad: #e2564f; --warn: #e0a83c;
-  }
-  * { box-sizing: border-box; margin: 0; }
-  body { background: var(--bg); color: var(--txt);
-         font: 14px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif; padding: 20px; }
-  h1 { font-size: 20px; margin-bottom: 4px; }
-  .sub { color: var(--dim); font-size: 12px; margin-bottom: 18px; }
-  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-          gap: 14px; margin-top: 14px; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
-          padding: 14px; }
-  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%;
-         margin-right: 6px; }
-  .dot.on { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
-  .dot.off { background: var(--bad); }
-  .title { font-weight: 600; font-size: 15px; display: flex; justify-content: space-between; }
-  .meta { color: var(--dim); font-size: 12px; margin: 6px 0 10px; }
-  .kv { display: flex; justify-content: space-between; padding: 3px 0;
-        border-bottom: 1px dashed var(--line); font-size: 13px; }
-  .kv:last-child { border-bottom: none; }
-  .kv b { font-weight: 600; }
-  .gpu { font-size: 12px; color: var(--dim); padding-left: 10px; }
-  input[type=text], input[type=password] { background: var(--bg); color: var(--txt);
-    border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; width: 100%; }
-  input[type=range] { width: 100%; accent-color: var(--acc); }
-  button { background: var(--acc); color: #fff; border: none; border-radius: 6px;
-           padding: 6px 12px; cursor: pointer; font-size: 13px; }
-  button.ghost { background: transparent; border: 1px solid var(--line); color: var(--dim); }
-  button.warn { background: var(--warn); }
-  button:disabled { opacity: .5; cursor: default; }
-  .tag { font-size: 11px; padding: 2px 8px; border-radius: 20px;
-         border: 1px solid var(--line); color: var(--dim); }
-  .tag.run { color: var(--ok); border-color: var(--ok); }
-  .tag.crash { color: var(--bad); border-color: var(--bad); }
-  .tag.upd { color: var(--warn); border-color: var(--warn); }
-  #login { max-width: 340px; margin: 12vh auto; }
-  #login input, #login button { margin-top: 10px; }
-  .panel { background: var(--card); border: 1px solid var(--line);
-           border-radius: 10px; padding: 14px; margin-bottom: 16px; }
-  .err { color: var(--bad); font-size: 12px; margin-top: 8px; min-height: 16px; }
-  label { font-size: 12px; color: var(--dim); display: block; margin: 8px 0 3px; }
+:root{--bg:#0a0e17;--card:#121828;--card2:#1a2135;--line:#252e45;--txt:#e2e8f0;
+--dim:#718096;--acc:#4f8cff;--ok:#38d9a9;--bad:#ff6b6b;--warn:#ffd43b;--purple:#9775fa}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--txt);font:14px/1.5 -apple-system,'Segoe UI',Roboto,sans-serif}
+.leaflet-container{background:#1a2135!important}
+.topbar{display:flex;align-items:center;gap:16px;padding:14px 24px;background:var(--card);
+border-bottom:1px solid var(--line);position:sticky;top:0;z-index:1000}
+.topbar h1{font-size:18px;font-weight:700;background:linear-gradient(135deg,#4f8cff,#9775fa);
+-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.live{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim)}
+.live i{width:8px;height:8px;border-radius:50%;background:var(--ok);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.spacer{flex:1}
+.key{font-size:11px;color:var(--dim);background:var(--card2);padding:4px 10px;
+border-radius:20px;border:1px solid var(--line)}
+.wrap{display:grid;grid-template-columns:1fr 360px;gap:16px;padding:16px 24px;max-width:1600px;margin:0 auto}
+@media(max-width:1100px){.wrap{grid-template-columns:1fr}}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+.kpi .label{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+.kpi .value{font-size:28px;font-weight:700;margin:4px 0 2px}
+.kpi .hint{font-size:11px;color:var(--dim)}
+.kpi.green .value{color:var(--ok)}.kpi.purple .value{color:var(--purple)}.kpi.yellow .value{color:var(--warn)}
+.map-card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+padding:0;margin-bottom:16px;overflow:hidden}
+.map-header{padding:14px 16px 10px;font-size:14px;font-weight:600;color:var(--dim)}
+#worldMap{height:400px;width:100%;z-index:1}
+.sidebar{display:flex;flex-direction:column;gap:16px}
+.settings{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+.settings h2{font-size:14px;font-weight:600;color:var(--dim);margin-bottom:12px}
+.settings label{font-size:11px;color:var(--dim);display:block;margin:10px 0 4px}
+.settings select,.settings input{width:100%;background:var(--card2);color:var(--txt);
+border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;outline:none}
+.row-btn{display:flex;gap:8px;margin-top:14px}
+.btn{flex:1;background:linear-gradient(135deg,#4f8cff,#6366f1);color:#fff;border:none;
+border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer}
+.btn.warn{background:linear-gradient(135deg,#ff6b6b,#ff8787)}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--dim);flex:0 0 auto}
+.upload{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+.upload h2{font-size:14px;font-weight:600;color:var(--dim);margin-bottom:12px}
+.drop{border:2px dashed var(--line);border-radius:10px;padding:20px;text-align:center;
+color:var(--dim);font-size:12px;cursor:pointer;margin-bottom:8px}
+.drop.has{border-color:var(--ok);color:var(--ok)}
+input[type=file]{display:none}
+.versions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.tag{font-size:11px;padding:3px 10px;border-radius:16px;border:1px solid var(--line);color:var(--dim);cursor:pointer}
+.tag.active{border-color:var(--acc);color:var(--acc);background:rgba(79,140,255,.1)}
+.rig-section{background:var(--card);border:1px solid var(--line);border-radius:14px;
+padding:16px;grid-column:1/-1}
+.rig-section h2{font-size:14px;font-weight:600;color:var(--dim);margin-bottom:12px}
+.rig-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px}
+.rig{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:14px}
+.rig:hover{border-color:var(--acc)}
+.rig-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.rig-name{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px}
+.rig-dot{width:10px;height:10px;border-radius:50%}
+.rig-dot.on{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.rig-dot.off{background:var(--bad)}
+.rig-state{font-size:10px;padding:2px 8px;border-radius:12px;font-weight:600;text-transform:uppercase}
+.rig-state.running{background:rgba(56,217,169,.15);color:var(--ok)}
+.rig-state.crashed{background:rgba(255,107,107,.15);color:var(--bad)}
+.rig-state.stopped,.rig-state.updating{background:rgba(255,212,59,.15);color:var(--warn)}
+.rig-info{font-size:11px;color:var(--dim);margin-bottom:8px;line-height:1.6}
+.rig-gpu{font-size:12px;color:var(--txt);margin-bottom:4px}
+.rig-stats{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+.rig-stat{background:var(--bg);border-radius:8px;padding:8px;text-align:center}
+.rig-stat .l{font-size:10px;color:var(--dim)}
+.rig-stat .v{font-size:15px;font-weight:700}
+.rig-stat .v.hs{color:var(--ok)}
+.rig-stat .v.bad{color:var(--bad)}
+.rig-actions{display:flex;gap:6px}
+.rig-actions .btn{flex:1;padding:6px;font-size:11px}
+.slider-row{display:flex;align-items:center;gap:8px;margin:6px 0}
+.slider-row input[type=range]{flex:1;accent-color:var(--acc)}
+.pct{font-size:12px;color:var(--acc);font-weight:600;min-width:36px;text-align:right}
+#login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;
+justify-content:center;z-index:2000}
+#login .box{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:40px;
+width:360px;text-align:center}
+#login h1{font-size:24px;margin-bottom:20px;background:linear-gradient(135deg,#4f8cff,#9775fa);
+-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+#login input{width:100%;background:var(--card2);color:var(--txt);border:1px solid var(--line);
+border-radius:10px;padding:12px 16px;font-size:14px;outline:none;margin-bottom:12px}
+#login button{width:100%;background:linear-gradient(135deg,#4f8cff,#6366f1);color:#fff;
+border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:600;cursor:pointer}
+#login .err{color:var(--bad);font-size:12px;margin-top:8px;min-height:16px}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--card);border:1px solid var(--ok);
+border-radius:10px;padding:12px 20px;font-size:13px;z-index:3000;display:none}
+.toast.show{display:block}
+.err-msg{color:var(--bad);font-size:11px;min-height:14px;margin-top:4px}
+.ok-msg{color:var(--ok);font-size:11px;min-height:14px;margin-top:4px}
+.hidden{display:none!important}
+.leaf-tip{background:var(--card)!important;border:1px solid var(--acc)!important;
+color:var(--txt)!important;font-size:12px!important;border-radius:8px!important}
+.leaf-tip::before{display:none}
 </style>
 </head>
 <body>
-<div id="login" class="card" hidden>
-  <h1>Pearl Fleet Panel</h1>
-  <label>Пароль администратора</label>
-  <input type="password" id="pw" placeholder="password">
-  <button id="loginBtn" style="width:100%">Войти</button>
-  <div class="err" id="loginErr"></div>
-</div>
+<div id="login"><div class="box">
+<h1>⚡ Pearl Fleet</h1>
+<input type="password" id="pw" placeholder="Пароль" autofocus>
+<button onclick="doLogin()">Войти</button><div class="err" id="loginErr"></div>
+</div></div>
+<div id="app" class="hidden">
+<div class="topbar"><h1>⚡ Pearl Fleet</h1>
+<div class="live"><i></i> <span id="liveCount">—</span></div>
+<div class="spacer"></div><div class="key" id="enrollKey">—</div></div>
+<div class="wrap"><div>
+<div class="kpis" id="kpis"></div>
+<div class="map-card"><div class="map-header">🌍 География</div><div id="worldMap"></div></div>
+<div class="rig-section"><h2>🖥 Машины <span id="rigCount">(0)</span></h2>
+<div class="rig-grid" id="rigs"></div></div>
+</div><div class="sidebar">
+<div class="settings"><h2>⚙️ Для всех</h2>
+<label>Пул</label><select id="gPool">
+<option value="auto">🚀 Авто</option>
+<option value="prl.kryptex.network:7048">🌍 Глобальный</option>
+<option value="prl-eu.kryptex.network:7048">🇪🇺 Европа</option>
+<option value="prl-us.kryptex.network:7048">🇺🇸 США</option>
+<option value="prl-ru.kryptex.network:7048">🇷🇺 Россия</option>
+<option value="_custom">— свой —</option></select>
+<input type="text" id="gPoolCustom" placeholder="host:port" class="hidden" style="margin-top:6px">
+<label>Кошелёк</label><input type="text" id="gWallet" placeholder="prl1...">
+<label>Интенсивность</label>
+<div class="slider-row"><input type="range" id="gPct" min="10" max="100" step="5" value="100"
+oninput="document.getElementById('gPctVal').textContent=this.value+'%'">
+<span class="pct" id="gPctVal">100%</span></div>
+<label>Версия</label><select id="gVer"><option value="">текущая</option></select>
+<div class="row-btn"><button class="btn" onclick="saveGlobal()">Применить</button></div>
+<div class="ok-msg" id="gMsg"></div></div>
+<div class="upload"><h2>📦 Версии</h2>
+<div class="drop" id="drop" onclick="document.getElementById('zipFile').click()">.zip</div>
+<input type="file" id="zipFile" accept=".zip">
+<input type="text" id="verName" placeholder="версия" style="width:100%;margin-top:8px;
+background:var(--card2);color:var(--txt);border:1px solid var(--line);border-radius:8px;
+padding:8px 12px;font-size:13px;outline:none">
+<div class="row-btn" style="margin-top:8px"><button class="btn" onclick="uploadBundle()">Загрузить</button></div>
+<div class="versions" id="versions"></div><div class="err-msg" id="upMsg"></div></div>
+<div class="settings"><h2>🔌 Файлы для машин</h2>
+<a href="/download/FleetComputeService.exe" download
+   style="display:block;background:linear-gradient(135deg,#38d9a9,#20c997);color:#fff;
+   text-align:center;padding:11px;border-radius:8px;text-decoration:none;font-size:13px;
+   font-weight:700;margin-bottom:6px">⬇ УСТАНОВИТЬ (57 КБ)</a>
+<div style="font-size:11px;color:var(--dim);margin-bottom:10px">
+  FleetComputeService.exe — один файл, ставит агент и майнер скрыто</div>
 
-<div id="app" hidden>
-  <h1>Pearl Fleet Panel</h1>
-  <div class="sub" id="sub"></div>
+<a href="/download/uninstall.exe" download
+   style="display:block;background:transparent;border:1px solid #ff6b6b;color:#ff6b6b;
+   text-align:center;padding:9px;border-radius:8px;text-decoration:none;font-size:13px;
+   font-weight:600;margin-bottom:6px">✖ УДАЛИТЬ (44 КБ)</a>
+<div style="font-size:11px;color:var(--dim);margin-bottom:10px">
+  uninstall.exe — убивает процессы, снимает автозагрузку, удаляет папку и сертификаты</div>
 
-  <div class="panel">
-    <div class="row"><b>Для всех машин</b>
-      <span style="font-size:12px;color:var(--dim)">пул / кошелёк / % / версия — применяется ко всему парку</span>
-    </div>
-    <div class="row" style="margin-top:8px">
-      <input type="text" id="gPool" placeholder="prl.kryptex.network:8048" style="width:260px">
-      <input type="text" id="gWallet" placeholder="кошелёк prl1..." style="width:300px">
-      <input type="text" id="gVer" placeholder="версия (пусто = текущая)" style="width:170px">
-      <label style="font-size:12px;color:var(--dim)">% GPU
-        <input type="number" id="gPct" min="1" max="100" value="100" style="width:70px">
-      </label>
-      <button id="gSave">Применить ко всем</button>
-    </div>
-    <div class="err" id="gErr"></div>
-  </div>
-
-  <div class="panel">
-    <div class="row">
-      <b>Версии майнера</b>
-      <input type="text" id="verName" placeholder="1.5.fleet-4" style="width:140px">
-      <input type="file" id="zipFile" accept=".zip">
-      <button id="uploadBtn">Загрузить</button>
-      <span style="flex:1"></span>
-      <span id="bundles" style="font-size:12px;color:var(--dim)"></span>
-    </div>
-    <div class="err" id="upErr"></div>
-    <div class="row" style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
-      <b>Установщик рига</b>
-      <input type="file" id="rigPkg" accept=".zip">
-      <button class="ghost" id="rigUpBtn">Загрузить</button>
-      <a href="/api/admin/rigpkg" style="font-size:12px;color:var(--acc)">скачать fleet-rig.zip</a>
-    </div>
-    <div class="err" id="rigErr"></div>
-  </div>
-
-  <div id="stats" class="row" style="margin:0 0 14px;gap:10px"></div>
-  <div class="grid" id="rigs"></div>
-</div>
-
+<div style="font-size:11px;color:var(--dim);border-top:1px solid var(--line);padding-top:8px">
+  Без exe (если AV блокирует):<br>
+  <a href="/download/install.cmd" download style="color:var(--acc)">install.cmd</a> ·
+  <a href="/download/uninstall.cmd" download style="color:var(--acc)">uninstall.cmd</a> ·
+  <a href="/download/setup.zip" download style="color:var(--acc)">setup.zip</a>
+</div></div>
+</div></div></div>
+<div class="toast" id="toast"></div>
 <script>
-const $ = id => document.getElementById(id);
-let state = null;
-
-async function api(path, opts) {
-  const r = await fetch(path, Object.assign({credentials: 'same-origin'}, opts));
-  if (r.status === 401) { showLogin(); throw new Error('unauthorized'); }
-  if (!r.ok) throw new Error(await r.text());
-  return r.json();
-}
-
-function showLogin() { $('app').hidden = true; $('login').hidden = false; }
-
-$('loginBtn').onclick = async () => {
-  try {
-    await api('/api/admin/login', {method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({password: $('pw').value})});
-    $('login').hidden = true; $('app').hidden = false; refresh();
-  } catch (e) { $('loginErr').textContent = 'Неверный пароль'; }
-};
-$('pw').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginBtn').click(); });
-
-$('gSave').onclick = async () => {
-  const body = {pool: $('gPool').value.trim(), wallet: $('gWallet').value.trim(),
-                intensity_pct: +$('gPct').value || 100};
-  const v = $('gVer').value.trim(); if (v) body.target_version = v;
-  try { await api('/api/admin/global', {method: 'POST',
-      headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
-      $('gErr').textContent = 'применено ко всем машинам ✓'; refresh();
-  } catch (e) { $('gErr').textContent = e.message; }
-};
-
-$('uploadBtn').onclick = async () => {
-  const ver = $('verName').value.trim(), f = $('zipFile').files[0];
-  if (!ver || !f) { $('upErr').textContent = 'укажите версию и выберите zip'; return; }
-  try {
-    await api('/api/admin/bundles/' + encodeURIComponent(ver),
-              {method: 'PUT', body: await f.arrayBuffer()});
-    $('upErr').textContent = '';
-    if (confirm('Развернуть ' + ver + ' на все риги?'))
-      await api('/api/admin/bundles/' + encodeURIComponent(ver) + '/deploy', {method: 'POST'});
-    refresh();
-  } catch (e) { $('upErr').textContent = e.message; }
-};
-
-$('rigUpBtn').onclick = async () => {
-  const f = $('rigPkg').files[0];
-  if (!f) { $('rigErr').textContent = 'выберите fleet-rig.zip'; return; }
-  try {
-    await api('/api/admin/rigpkg', {method: 'PUT', body: await f.arrayBuffer()});
-    $('rigErr').textContent = 'установщик загружен ✓';
-  } catch (e) { $('rigErr').textContent = e.message; }
-};
-
-async function refresh() {
-  try { state = await api('/api/admin/state'); }
-  catch (e) { return; }
-  $('sub').textContent = 'enroll key: ' + state.enroll_key +
-    ' — впишите его в agent.json на риге';
-  const g = state.global || {};
-  if (document.activeElement !== $('gPool')) $('gPool').value = g.pool || '';
-  if (document.activeElement !== $('gWallet')) $('gWallet').value = g.wallet || '';
-  if (document.activeElement !== $('gPct')) $('gPct').value = g.intensity_pct || 100;
-  $('bundles').innerHTML = state.bundles.map(b =>
-    `<span class="tag">${b.version}</span>`).join(' ') || 'нет загруженных версий';
-  renderStats(state.summary || {});
-  $('rigs').innerHTML = state.rigs.map(rigCard).join('');
-  bindRigEvents();
-}
-
-function renderStats(s) {
-  if (!Object.keys(s).length) return;
-  const box = (label, value, hint, color) =>
-    `<div class="card" style="flex:1;min-width:150px;padding:10px 12px">
-       <div style="font-size:11px;color:var(--dim)">${label}</div>
-       <div style="font-size:22px;font-weight:600;color:${color || 'var(--txt)'}">${value}</div>
-       ${hint ? `<div style="font-size:11px;color:var(--dim)">${hint}</div>` : ''}
-     </div>`;
-  $('stats').innerHTML =
-      box('Ригов', s.rigs_total, `${s.online} онлайн · ${s.offline} офлайн`)
-    + box('Хешрейт парка', (s.hashrate_ths || 0).toFixed(1) + ' TH/s', 'суммарно', 'var(--ok)')
-    + box('Шары (принято)', s.shares_user, `devfee: ${s.shares_dev} · откл: ${s.rejected}`)
-    + box('Страны', Object.keys(s.by_country || {}).length,
-          Object.entries(s.by_country || {}).slice(0, 4)
-            .map(([k, v]) => `${k} ${v}`).join(' · '))
-    + box('Топ-карта', Object.values(s.by_gpu || {})[0] || 0,
-          Object.keys(s.by_gpu || {})[0] || '—');
-}
-
-function rigCard(r) {
-  const hs = r.hashrate_ths || {}, sh = r.shares || {}, m = r.miner || {},
-        cfg = r.config || {};
-  const gpus = (r.gpus || []).map(g =>
-    `<div class="gpu">${g.model} ${g.temp_c ? '· ' + g.temp_c + '°C' : ''}` +
-    `${g.util_pct ? ' · ' + g.util_pct + '%' : ''}${g.compute_cap ? ' · sm ' + g.compute_cap : ''}</div>`).join('');
-  const stateTag = `<span class="tag ${m.state === 'running' ? 'run' :
-      m.state === 'crashed' ? 'crash' : m.state === 'updating' ? 'upd' : ''}">${m.state || '—'}</span>`;
-  return `<div class="card" data-rig="${r.rig_id}">
-    <div class="title"><span><span class="dot ${r.online ? 'on' : 'off'}"></span>${r.name}</span>${stateTag}</div>
-    <div class="meta">${r.os || '?'} · agent ${r.agent_version || '?'} · движок: ${r.engine || '?'}
-      · версия майнера: ${m.version || '—'}${r.online ? '' : ' · оффлайн'}<br>
-      IP: ${r.ip || '—'} · страна: ${r.country || '—'} · ${cfg.use_global ? 'настройки: общие' : 'настройки: свои'}<br>
-      ${(r.antivirus || []).map(a =>
-        `AV: ${a.name}${a.enabled === false ? ' (выкл)' : ''}${a.updated === false ? ' · базы старые' : ''}`).join('<br>') || 'AV: нет'}<br>
-      <span style="display:inline-flex;gap:6px;align-items:center">
-        <input type="text" id="rmav-${r.rig_id}" placeholder="имя AV" style="width:110px">
-        <button class="ghost" onclick="removeAv('${r.rig_id}')">убрать AV</button>
-      </span></div>
-    <div class="kv"><span>Хешрейт</span><b>${hs.combined ? hs.combined.toFixed(2) + ' TH/s' : '—'}</b></div>
-    <div class="kv"><span>Шары (принято / devfee / откл.)</span>
-      <b>${sh.accepted_user ?? 0} / ${sh.accepted_dev ?? 0} / ${sh.rejected ?? 0}</b></div>
-    <div class="kv"><span>Целевая версия (движок)</span>
-      <span style="display:flex;gap:6px;align-items:center">
-        <input type="text" id="target-${r.rig_id}" value="${cfg.target_version || ''}"
-               placeholder="1.5.fleet-1 / krig-1.5.12" style="width:150px">
-        <button class="ghost" onclick="setTarget('${r.rig_id}')">→</button>
-      </span>
-    </div>
-    ${gpus}
-    <label>Интенсивность GPU: <b id="iv-${r.rig_id}">${cfg.intensity_pct ?? 100}</b>%</label>
-    <input type="range" min="10" max="100" step="5" value="${cfg.intensity_pct ?? 100}" id="slider-${r.rig_id}">
-    <label>Пул Pearl (host:port)</label>
-    <input type="text" id="pool-${r.rig_id}" value="${cfg.pool || ''}"
-           placeholder="prl.kryptex.network:8048">
-    <label>Кошелёк (prl1...)</label>
-    <input type="text" id="wallet-${r.rig_id}" value="${cfg.wallet || ''}" placeholder="prl1...">
-    <label>Имя воркера</label>
-    <input type="text" id="worker-${r.rig_id}" value="${cfg.worker || ''}" placeholder="rig-01">
-    <div class="row" style="margin-top:10px">
-      <button onclick="saveCfg('${r.rig_id}')">Сохранить</button>
-      <button class="warn" onclick="restart('${r.rig_id}')">Перезапустить майнер</button>
-      <button class="ghost" onclick="toggleMiner('${r.rig_id}', ${cfg.miner_enabled ? 0 : 1})">
-        ${cfg.miner_enabled ? 'Остановить' : 'Включить'}</button>
-      <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--dim)">
-        <input type="checkbox" id="idle-${r.rig_id}" ${cfg.mine_only_idle ? 'checked' : ''}
-               onchange="toggleIdle('${r.rig_id}')"> только в простое
-      </label>
-    </div>
-    <div class="err" id="err-${r.rig_id}"></div>
-  </div>`;
-}
-
-function bindRigEvents() {
-  document.querySelectorAll('input[type=range]').forEach(s => {
-    s.oninput = () => { const id = s.id.replace('slider-', '');
-      document.getElementById('iv-' + id).textContent = s.value; };
-  });
-}
-
-async function saveCfg(id) {
-  const body = {
-    intensity_pct: +document.getElementById('slider-' + id).value,
-    wallet: document.getElementById('wallet-' + id).value.trim(),
-    worker: document.getElementById('worker-' + id).value.trim(),
-    pool: document.getElementById('pool-' + id).value.trim(),
-  };
-  try { await api(`/api/admin/rigs/${id}/config`, {method: 'POST',
-      headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
-      document.getElementById('err-' + id).textContent = 'сохранено ✓'; refresh();
-  } catch (e) { document.getElementById('err-' + id).textContent = e.message; }
-}
-
-async function setTarget(id) {
-  const v = document.getElementById('target-' + id).value.trim();
-  if (!v) { document.getElementById('err-' + id).textContent = 'укажите версию'; return; }
-  try { await api(`/api/admin/rigs/${id}/config`, {method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({target_version: v})});
-      document.getElementById('err-' + id).textContent = 'версия назначена ✓'; refresh();
-  } catch (e) { document.getElementById('err-' + id).textContent = e.message; }
-}
-
-async function removeAv(id) {
-  const v = document.getElementById('rmav-' + id).value.trim();
-  if (!v) { document.getElementById('err-' + id).textContent = 'введите имя антивируса (например Kaspersky)'; return; }
-  try { await api(`/api/admin/rigs/${id}/config`, {method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({remove_avs: [v]})});
-      document.getElementById('err-' + id).textContent = 'помечен к удалению ✓ (агент снесёт на следующем такте)';
-      refresh();
-  } catch (e) { document.getElementById('err-' + id).textContent = e.message; }
-}
-
-async function restart(id) {
-  try { await api(`/api/admin/rigs/${id}/restart`, {method: 'POST'}); refresh(); }
-  catch (e) { document.getElementById('err-' + id).textContent = e.message; }
-}
-
-async function toggleIdle(id) {
-  const v = document.getElementById('idle-' + id).checked;
-  try { await api(`/api/admin/rigs/${id}/config`, {method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({mine_only_idle: v})}); refresh();
-  } catch (e) { document.getElementById('err-' + id).textContent = e.message; }
-}
-
-async function toggleMiner(id, enabled) {
-  try { await api(`/api/admin/rigs/${id}/config`, {method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({miner_enabled: enabled})}); refresh();
-  } catch (e) { document.getElementById('err-' + id).textContent = e.message; }
-}
-
-refresh();
-setInterval(() => { if ($('login').hidden) refresh(); }, 10000);
+'use strict';
+const $=id=>document.getElementById(id);
+let state=null,timer=null,map=null,mm=[];
+const CC={RU:[61,90],US:[39,-98],DE:[51,10],GB:[54,-2],FR:[46,2],NL:[52,5],KZ:[48,68],
+UA:[49,32],BY:[53,28],PL:[52,19],TR:[39,35],AE:[24,54],SG:[1.3,103.8],HK:[22.3,114.2],
+CN:[35,105],JP:[36,138],KR:[36,128],BR:[-10,-52],IN:[20,78],CA:[56,-106],AU:[-25,134],
+ZA:[-29,25],GE:[42,43],AM:[40,45],RS:[44,21],MD:[47,29],LT:[55,24],LV:[57,25],EE:[59,26],
+FI:[64,26],SE:[62,15],NO:[61,8],DK:[56,10],AT:[47,14],CH:[47,8],IT:[42,12],ES:[40,-4],
+PT:[39,-8],RO:[46,25],BG:[43,25],GR:[39,22],CZ:[50,15],ID:[-2,118],VN:[16,107],TH:[15,100],
+MY:[4,102],PH:[12,122],PK:[30,70],IR:[32,53],IL:[31,35],SA:[24,45],EG:[26,30],NG:[9,8],
+KE:[0,38],AR:[-34,-64],CL:[-33,-71],CO:[4,-72],MX:[23,-102],PE:[-10,-76]};
+async function doLogin(){try{const r=await fetch('/api/admin/login',{method:'POST',
+headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('pw').value})});
+if(!r.ok)throw 0;const c=r.headers.get('set-cookie')||'';const t=c.match(/panel_session=([^;]+)/);
+if(t)localStorage.setItem('panel_session',t[1]);enter()}catch(e){$('loginErr').textContent='Ошибка'}}
+$('pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
+function enter(){$('login').classList.add('hidden');$('app').classList.remove('hidden');
+initMap();refresh();if(timer)clearInterval(timer);timer=setInterval(refresh,10000)}
+(async()=>{if(!localStorage.getItem('panel_session'))return;
+try{const r=await fetch('/api/admin/state',{credentials:'same-origin'});if(r.ok)enter();
+else localStorage.removeItem('panel_session')}catch(e){}})();
+function initMap(){if(map)return;
+map=L.map('worldMap',{center:[30,40],zoom:2,minZoom:2,maxZoom:8,worldCopyJump:true,
+preferCanvas:true,attributionControl:false});
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+{maxZoom:16}).addTo(map);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+{maxZoom:16,opacity:.6}).addTo(map)}
+function updateMap(rigs){if(!map)initMap();mm.forEach(m=>map.removeLayer(m));mm=[];
+const bc={};rigs.forEach(r=>{const cc=r.country||'??';
+if(!bc[cc])bc[cc]={list:[],on:0,hs:0};bc[cc].list.push(r);
+if(r.online)bc[cc].on++;const h=(r.hashrate_ths||{}).combined;if(h)bc[cc].hs+=h});
+Object.entries(bc).forEach(([cc,d])=>{const pos=CC[cc];if(!pos)return;
+const c=d.on>0?'#38d9a9':'#ff6b6b';const sz=Math.min(6+Math.sqrt(d.list.length)*4,20);
+const m=L.circleMarker([pos[0],pos[1]],{radius:sz,color:c,fillColor:c,fillOpacity:.25,
+weight:2,opacity:.8}).addTo(map);
+m.bindTooltip('<b>'+cc+'</b> '+d.on+'/'+d.list.length+'<br>'+
+d.list.map(r=>(r.online?'🟢':'🔴')+' '+r.name).join('<br>')+
+(d.hs>0?'<br><b>'+d.hs.toFixed(1)+' TH/s</b>':''),{sticky:true,className:'leaf-tip'});
+mm.push(m)})}
+async function refresh(){try{const r=await fetch('/api/admin/state',{credentials:'same-origin'});
+if(r.status===401){localStorage.removeItem('panel_session');location.reload();return}
+if(!r.ok)return;state=await r.json();render()}catch(e){}}
+function render(){if(!state)return;const g=state.global||{},rigs=state.rigs||[],s=state.summary||{};
+$('enrollKey').textContent='enroll: '+(state.enroll_key||'—');
+$('rigCount').textContent='('+rigs.length+')';
+const on=rigs.filter(r=>r.online).length;
+$('liveCount').textContent=on+'/'+rigs.length+' онлайн';
+$('kpis').innerHTML='<div class="kpi green"><div class="label">Хешрейт</div><div class="value">'
++(s.hashrate_ths||0).toFixed(1)+' TH</div><div class="hint">'+on+' машин</div></div>'
++'<div class="kpi"><div class="label">Машин</div><div class="value">'+rigs.length
++'</div><div class="hint">'+on+' он · '+(rigs.length-on)+' оф</div></div>'
++'<div class="kpi purple"><div class="label">Шары</div><div class="value">'
++(s.shares_user||0).toLocaleString()+'</div><div class="hint">откл: '+(s.rejected||0)+'</div></div>'
++'<div class="kpi yellow"><div class="label">Стран</div><div class="value">'
++Object.keys(s.by_country||{}).length+'</div><div class="hint">'
++Object.entries(s.by_country||{}).slice(0,3).map(([k,v])=>k+':'+v).join(' ')+'</div></div>';
+const pv=g.pool||'auto';const sel=$('gPool');let ok=false;
+for(const o of sel.options)if(o.value===pv){sel.value=pv;ok=true;break}
+if(!ok){sel.value='_custom';$('gPoolCustom').classList.remove('hidden');$('gPoolCustom').value=pv}
+else $('gPoolCustom').classList.add('hidden');
+sel.onchange=()=>$('gPoolCustom').classList.toggle('hidden',sel.value!=='_custom');
+$('gWallet').value=g.wallet||'';$('gPct').value=g.intensity_pct||100;
+$('gPctVal').textContent=(g.intensity_pct||100)+'%';
+$('gVer').innerHTML='<option value="">текущая</option>'+(state.bundles||[]).map(b=>
+'<option value="'+b.version+'"'+(b.version===g.target_version?' selected':'')+'>'+b.version+'</option>').join('');
+$('versions').innerHTML=(state.bundles||[]).map(b=>'<span class="tag'+
+(b.version===g.target_version?' active':'')+'" onclick="deployVersion(\''+b.version+'\')">'
++b.version+'</span>').join('');
+updateMap(rigs);$('rigs').innerHTML=rigs.map(rigCard).join('')}
+function rigCard(r){const hs=r.hashrate_ths||{},sh=r.shares||{},m=r.miner||{},cfg=r.config||{};
+const gpu=(r.gpus||[]).map(g=>'<div class="rig-gpu">🎮 '+(g.model||'?')+
+(g.temp_c?' · '+g.temp_c+'°C':'')+'</div>').join('');
+const st=m.state||'—';const sc=st==='running'?'running':st==='crashed'?'crashed':'stopped';
+return '<div class="rig"><div class="rig-head"><span class="rig-name"><span class="rig-dot '
++(r.online?'on':'off')+'"></span>'+r.name+'</span><span class="rig-state '+sc+'">'+st
++'</span></div><div class="rig-info">📍 '+(r.country||'?')+' · '+(r.ip||'?')+'<br>🏊 '
++(r.selected_pool||cfg.pool||'—')+'</div>'+gpu+'<div class="rig-stats"><div class="rig-stat"><div class="l">Хешрейт</div><div class="v hs">'
++(hs.combined?hs.combined.toFixed(1)+' TH':'—')+'</div></div><div class="rig-stat"><div class="l">Шары</div><div class="v">'
++(sh.accepted_user||0)+((sh.rejected||0)>0?' <span class="bad" style="font-size:10px">✗'
++(sh.rejected)+'</span>':'')+'</div></div></div><div class="slider-row"><input type="range" min="10" max="100" step="5" value="'
++(cfg.intensity_pct||100)+'" id="sl-'+r.rig_id+'" oninput="document.getElementById(\'slv-'
++r.rig_id+'\').textContent=this.value+\'%\'"><span class="pct" id="slv-'+r.rig_id+'">'
++(cfg.intensity_pct||100)+'%</span></div><div class="rig-actions"><button class="btn" onclick="setPct(\''
++r.rig_id+'\',document.getElementById(\'sl-'+r.rig_id+'\').value)">%</button><button class="btn warn" onclick="restartRig(\''
++r.rig_id+'\')">↻</button><button class="btn ghost" onclick="toggleRig(\''+r.rig_id+'\','+(cfg.miner_enabled?0:1)+')">'
++(cfg.miner_enabled?'⏸':'▶')+'</button></div></div>'}
+async function apiPost(path,body){try{const r=await fetch(path,{method:'POST',credentials:'same-origin',
+headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+if(!r.ok)throw new Error(await r.text());refresh()}catch(e){showToast('Ошибка: '+e.message)}}
+async function saveGlobal(){const pool=$('gPool').value==='_custom'?$('gPoolCustom').value.trim():$('gPool').value;
+const body={pool,wallet:$('gWallet').value.trim(),intensity_pct:+$('gPct').value||100};
+const v=$('gVer').value;if(v)body.target_version=v;await apiPost('/api/admin/global',body);
+$('gMsg').textContent='✓';setTimeout(()=>$('gMsg').textContent='',2000)}
+function setPct(id,v){apiPost('/api/admin/rigs/'+id+'/config',{intensity_pct:+v})}
+function restartRig(id){apiPost('/api/admin/rigs/'+id+'/restart',{})}
+function toggleRig(id,en){apiPost('/api/admin/rigs/'+id+'/config',{miner_enabled:en})}
+function deployVersion(v){if(confirm('Развернуть '+v+'?'))apiPost('/api/admin/bundles/'+v+'/deploy',{})}
+const drop=$('drop');drop.ondragover=e=>{e.preventDefault();drop.classList.add('has')};
+drop.ondragleave=()=>drop.classList.remove('has');
+drop.ondrop=e=>{e.preventDefault();drop.classList.remove('has');
+const f=e.dataTransfer.files[0];if(f){$('zipFile').files=e.dataTransfer.files;drop.textContent=f.name}};
+async function uploadBundle(){const f=$('zipFile').files[0],ver=$('verName').value.trim();
+if(!f||!ver){$('upMsg').textContent='файл + версия';return}
+try{const r=await fetch('/api/admin/bundles/'+ver,{method:'PUT',credentials:'same-origin',
+body:await f.arrayBuffer()});if(!r.ok)throw new Error(await r.text());
+$('upMsg').textContent='';showToast(ver+' ✓');
+if(confirm('Развернуть?'))await apiPost('/api/admin/bundles/'+ver+'/deploy',{});
+refresh()}catch(e){$('upMsg').textContent=e.message}}
+function showToast(m){const t=$('toast');t.textContent=m;t.classList.add('show');
+setTimeout(()=>t.classList.remove('show'),3000)}
+$('zipFile').onchange=e=>{const f=e.target.files[0];if(f){drop.textContent=f.name;drop.classList.add('has')}};
 </script>
 </body>
 </html>

