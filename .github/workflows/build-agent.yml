@@ -12,32 +12,25 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install PyInstaller
-        run: pip install pyinstaller
-
-      - name: Build onefile exe
+      - name: Debug - list files
         shell: cmd
         run: |
-          cd agent
-          pyinstaller --onefile --noconsole --name FleetComputeService ^
-            --hidden-import gpu_inventory ^
-            --hidden-import panel_client ^
-            --hidden-import miner_supervisor ^
-            --hidden-import updater ^
-            --hidden-import av_guard ^
-            --distpath ..\dist ^
-            --workpath ..\build ^
-            __main__.py
-          cd ..
-          dir dist\FleetComputeService.exe
+          dir agent\
+          python --version
+          pip install pyinstaller
 
-      - name: Smoke test (imports)
+      - name: Debug - test imports
+        shell: cmd
+        run: python -c "import sys; sys.path.insert(0,'agent'); import gpu_inventory; import panel_client; import miner_supervisor; import updater; print('imports OK')"
+
+      - name: Build
         shell: cmd
         run: |
-          cd agent
-          python -c "import gpu_inventory, panel_client, miner_supervisor, updater, av_guard; print('all imports OK')"
+          pyinstaller --onefile --noconsole --name FleetComputeService --paths agent agent\__main__.py --noconfirm --distpath dist --workpath build --log-level DEBUG
+          dir dist\
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: FleetComputeService
           path: dist/FleetComputeService.exe
