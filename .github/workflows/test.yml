@@ -6,3 +6,4 @@ jobs:
     steps:
       - run: echo "hello world"
       - run: python3 --version
+      - run: date
