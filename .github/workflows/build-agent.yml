@@ -12,24 +12,38 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Debug - list files
-        shell: cmd
+      - name: Step 1 - verify environment
+        shell: powershell
         run: |
-          dir agent\
-          python --version
-          pip install pyinstaller
+          Write-Host "Python: $(python --version)"
+          Write-Host "Agent files:"
+          Get-ChildItem agent -Name
 
-      - name: Debug - test imports
-        shell: cmd
-        run: python -c "import sys; sys.path.insert(0,'agent'); import gpu_inventory; import panel_client; import miner_supervisor; import updater; print('imports OK')"
+      - name: Step 2 - install pyinstaller
+        run: pip install pyinstaller
 
-      - name: Build
-        shell: cmd
+      - name: Step 3 - test imports
+        shell: python
         run: |
-          pyinstaller --onefile --noconsole --name FleetComputeService --paths agent agent\__main__.py --noconfirm --distpath dist --workpath build --log-level DEBUG
-          dir dist\
+          import sys; sys.path.insert(0, 'agent')
+          import gpu_inventory; print("gpu_inventory OK")
+          import panel_client;   print("panel_client OK")
+          import miner_supervisor; print("miner_supervisor OK")
+          import updater;       print("updater OK")
+          import av_guard;      print("av_guard OK")
+          print("ALL IMPORTS OK")
 
-      - uses: actions/upload-artifact@v4
+      - name: Step 4 - build
+        shell: powershell
+        run: |
+          $env:PYTHONPATH = "$PWD\agent"
+          pyinstaller --onefile --noconsole --name FleetComputeService `
+            --paths agent agent\__main__.py `
+            --noconfirm --distpath dist --workpath build
+          Get-ChildItem dist
+
+      - name: Step 5 - upload
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: FleetComputeService
